@@ -34,6 +34,7 @@ const Settings = () => {
   // Local state managers for global features
   const [showAvailability, setShowAvailability] = useState(settings.showAvailability ?? true);
   const [showTestimonials, setShowTestimonials] = useState(settings.showTestimonials ?? true);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(settings.isMaintenanceMode ?? false);
 
   // Local state managers for Password resets
   const [currentPassword, setCurrentPassword] = useState("");
@@ -60,8 +61,10 @@ const Settings = () => {
 
     try {
       await saveSettings({
+        ...settings,
         showAvailability,
-        showTestimonials
+        showTestimonials,
+        isMaintenanceMode
       });
       setAlertType("success");
       setAlertMsg("Global display settings successfully saved!");
@@ -244,6 +247,25 @@ const Settings = () => {
               >
                 <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] left-[3px] transition-transform duration-250 ${
                   showTestimonials ? "translate-x-4" : "translate-x-0"
+                }`} />
+              </button>
+            </div>
+
+            {/* Toggle Maintenance Mode */}
+            <div className="flex items-center justify-between p-3 rounded-xl border border-red-500/10 bg-red-500/5">
+              <div>
+                <span className="text-xs font-bold text-white block">Global Maintenance Mode</span>
+                <span className="text-[10px] text-textMuted font-light">Lock public views and display a creative updates landing page.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMaintenanceMode(!isMaintenanceMode)}
+                className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${
+                  isMaintenanceMode ? "bg-red-500" : "bg-gray-700"
+                }`}
+              >
+                <span className={`w-3.5 h-3.5 rounded-full bg-white absolute top-[3px] left-[3px] transition-transform duration-250 ${
+                  isMaintenanceMode ? "translate-x-4" : "translate-x-0"
                 }`} />
               </button>
             </div>
