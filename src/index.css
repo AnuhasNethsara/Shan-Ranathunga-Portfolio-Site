@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0A0A0A;
+  --color-surface: #111827;
+  --color-primary: #007BFF;
+  --color-accent: #38BDF8;
+  --color-textSoft: #F5F5F5;
+  --color-textMuted: #9CA3AF;
+
+  --font-sora: "Sora", sans-serif;
+  --font-inter: "Inter", sans-serif;
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+@utility glass-card {
+  background: rgba(17, 24, 39, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+@utility glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: rgba(0, 123, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 123, 255, 0.15);
+    transform: translateY(-4px);
+  }
+}
+
+@utility glass-input {
+  background: rgba(17, 24, 39, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #F5F5F5;
+  border-radius: 8px;
+  transition: all 0.2s ease-in-out;
+
+  &:focus {
+    outline: none;
+    border-color: #007BFF;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.25);
+    background: rgba(17, 24, 39, 0.8);
+  }
+}
+
+@utility neon-text-blue {
+  text-shadow: 0 0 8px rgba(0, 123, 255, 0.6), 0 0 20px rgba(56, 189, 248, 0.3);
+}
+
+@utility neon-glow-blue {
+  box-shadow: 0 0 15px rgba(0, 123, 255, 0.3), 0 0 30px rgba(56, 189, 248, 0.15);
+}
+
+@utility neon-glow-border {
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+}
+
+@utility nav-active-dot {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #38BDF8;
+    box-shadow: 0 0 8px #38BDF8;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    cursor: none; /* Hide default cursor for custom cursor */
+  }
+
+  body {
+    background-color: #0A0A0A;
+    color: #F5F5F5;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Sora', sans-serif;
+  }
+
+  /* Custom Thin scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0A0A0A;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1F2937;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #007BFF;
+  }
+}
+
+/* Custom animated cursor glow trail */
+.custom-cursor {
+  width: 8px;
+  height: 8px;
+  background-color: #38BDF8;
+  border-radius: 50%;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 99999;
+  transition: width 0.2s, height 0.2s, background-color 0.2s;
+  box-shadow: 0 0 10px #38BDF8, 0 0 20px #007BFF;
+}
+
+.custom-cursor-glow {
+  width: 36px;
+  height: 36px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, rgba(0, 123, 255, 0.03) 70%, transparent 100%);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  border-radius: 50%;
+  position: fixed;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 99998;
+  transition: transform 0.08s cubic-bezier(0.25, 1, 0.5, 1), width 0.2s, height 0.2s;
+}
+
+/* Hide custom cursor on mobile touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .custom-cursor,
+  .custom-cursor-glow {
+    display: none;
+  }
+  html {
+    cursor: auto;
+  }
+}
+
+/* Background animated moving grid/particles */
+.bg-grid-glow {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+}
+
+.glow-gradient-radial {
+  background: radial-gradient(circle at 50% 50%, rgba(0, 123, 255, 0.08) 0%, rgba(17, 24, 39, 0) 70%);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
