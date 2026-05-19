@@ -15,7 +15,9 @@ import {
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  updatePassword
+  updatePassword,
+  GoogleAuthProvider,
+  signInWithPopup
 } from "firebase/auth";
 import { defaultData } from "../data/defaultData";
 import { adminCredentials } from "../data/adminConfig";
@@ -34,6 +36,7 @@ export const SiteDataProvider = ({ children }) => {
   const [contactInfo, setContactInfo] = useState(defaultData.contactInfo);
   const [messages, setMessages] = useState([]);
   const [settings, setSettings] = useState(defaultData.settings);
+  const [authorizedEmails, setAuthorizedEmails] = useState(adminCredentials.authorizedGoogleEmails);
   
   // Auth state
   const [currentUser, setCurrentUser] = useState(null);
@@ -87,6 +90,16 @@ export const SiteDataProvider = ({ children }) => {
           } else {
             await setDoc(settingsDocRef, defaultData.settings);
             setSettings(defaultData.settings);
+          }
+
+          // --- LOAD AUTHORIZED GOOGLE ADMIN EMAILS ---
+          const adminsDocRef = doc(db, "siteData", "admins");
+          const adminsSnap = await getDoc(adminsDocRef);
+          if (adminsSnap.exists()) {
+            setAuthorizedEmails(adminsSnap.data().emails || adminCredentials.authorizedGoogleEmails);
+          } else {
+            await setDoc(adminsDocRef, { emails: adminCredentials.authorizedGoogleEmails });
+            setAuthorizedEmails(adminCredentials.authorizedGoogleEmails);
           }
 
           // --- 5. LOAD PORTFOLIO ITEMS ---
@@ -191,6 +204,9 @@ export const SiteDataProvider = ({ children }) => {
 
       const storedSettings = localStorage.getItem("shan_settings");
       setSettings(storedSettings ? JSON.parse(storedSettings) : defaultData.settings);
+
+      const storedAdmins = localStorage.getItem("shan_authorized_emails");
+      setAuthorizedEmails(storedAdmins ? JSON.parse(storedAdmins) : adminCredentials.authorizedGoogleEmails);
 
       // Simple localStorage Admin Session check
       const adminSession = localStorage.getItem("shan_admin_session");
@@ -460,6 +476,61 @@ export const SiteDataProvider = ({ children }) => {
     }
   };
 
+  const loginWithGoogle = async () => {
+    if (firebaseActive) {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+
+      // Verify email whitelist access against dynamic loaded settings
+      const isAllowed = authorizedEmails.some(email => email.toLowerCase() === user.email.toLowerCase());
+
+      if (!isAllowed) {
+        await signOut(auth);
+        throw new Error(`Access Denied: The Google account "${user.email}" is not whitelisted for admin credentials.`);
+      }
+
+      setCurrentUser(user);
+      return user;
+    } else {
+      throw new Error("Google Sign-In is only active when your live Firebase Cloud configuration is connected.");
+    }
+  };
+
+  // Add more dynamic authorized emails
+  const addAdminEmail = async (email) => {
+    if (!email || !email.includes("@")) throw new Error("Invalid email format");
+    const cleanedEmail = email.toLowerCase().trim();
+    if (authorizedEmails.some(e => e.toLowerCase() === cleanedEmail)) {
+      throw new Error("This email is already whitelisted as an administrator.");
+    }
+    const newList = [...authorizedEmails, cleanedEmail];
+    setAuthorizedEmails(newList);
+
+    if (firebaseActive) {
+      await setDoc(doc(db, "siteData", "admins"), { emails: newList });
+    } else {
+      localStorage.setItem("shan_authorized_emails", JSON.stringify(newList));
+    }
+  };
+
+  // Delete dynamic authorized emails
+  const deleteAdminEmail = async (email) => {
+    const cleanedEmail = email.toLowerCase().trim();
+    if (authorizedEmails.length <= 1) {
+      throw new Error("Cannot delete the last remaining whitelisted administrator.");
+    }
+    const newList = authorizedEmails.filter(e => e.toLowerCase() !== cleanedEmail);
+    setAuthorizedEmails(newList);
+
+    if (firebaseActive) {
+      await setDoc(doc(db, "siteData", "admins"), { emails: newList });
+    } else {
+      localStorage.setItem("shan_authorized_emails", JSON.stringify(newList));
+    }
+  };
+
   const logout = async () => {
     if (firebaseActive) {
       await signOut(auth);
@@ -591,10 +662,14 @@ export const SiteDataProvider = ({ children }) => {
       deleteMessage,
       saveSettings,
       login,
+      loginWithGoogle,
       logout,
       changePassword,
       exportAllData,
-      importAllData
+      importAllData,
+      authorizedEmails,
+      addAdminEmail,
+      deleteAdminEmail
     }}>
       {children}
     </SiteDataContext.Provider>

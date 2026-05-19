@@ -10,7 +10,11 @@ import {
   Eye,
   Settings2,
   Database,
-  DatabaseZap
+  DatabaseZap,
+  UserPlus,
+  Trash2,
+  Mail,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -21,7 +25,10 @@ const Settings = () => {
     exportAllData, 
     importAllData, 
     changePassword,
-    firebaseActive 
+    firebaseActive,
+    authorizedEmails,
+    addAdminEmail,
+    deleteAdminEmail
   } = useSiteData();
 
   // Local state managers for global features
@@ -35,6 +42,12 @@ const Settings = () => {
 
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  
+  // Whitelist manager states
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [adminActionLoading, setAdminActionLoading] = useState(false);
+  const [adminAlertMsg, setAdminAlertMsg] = useState("");
+  const [adminAlertType, setAdminAlertType] = useState("success");
   
   const [alertMsg, setAlertMsg] = useState("");
   const [alertType, setAlertType] = useState("success");
@@ -340,6 +353,123 @@ const Settings = () => {
               {savingPassword ? "Updating Password..." : "Update Security Credentials"}
             </button>
           </form>
+
+          {/* Whitelisted Admins Control Panel Card */}
+          <div className="glass-card p-6 md:p-8 rounded-2xl border border-white/5 flex flex-col gap-5">
+            <h3 className="font-sora text-base font-bold text-white tracking-tight border-b border-white/5 pb-3 flex items-center gap-2">
+              <Users size={16} className="text-[#38BDF8]" />
+              Admin Access Whitelist
+            </h3>
+            
+            <p className="text-[11px] text-textMuted font-light leading-relaxed">
+              Add or remove authorized Google accounts allowed admin entrance. Only these emails will be verified during Google popup sign-in.
+            </p>
+
+            {/* Local action feedback */}
+            {adminAlertMsg && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex items-center gap-2.5 p-3 rounded-xl border text-[11px] font-medium ${
+                  adminAlertType === "success"
+                    ? "border-[#10B981]/20 bg-[#10B981]/10 text-green-400"
+                    : "border-red-500/20 bg-red-500/10 text-red-400"
+                }`}
+              >
+                {adminAlertType === "success" ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                <span>{adminAlertMsg}</span>
+              </motion.div>
+            )}
+
+            {/* Whitelisted accounts badging list */}
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+              {(authorizedEmails || []).map((email, idx) => (
+                <div 
+                  key={idx} 
+                  className="flex items-center justify-between p-3 rounded-xl border border-white/5 bg-white/5 group hover:border-[#007BFF]/35 transition-colors"
+                >
+                  <div className="flex items-center gap-2 text-xs text-white">
+                    <Mail size={12} className="text-[#38BDF8] shrink-0" />
+                    <span className="font-light tracking-wide truncate max-w-[200px]">{email}</span>
+                  </div>
+                  
+                  {/* Delete Badge */}
+                  <button
+                    type="button"
+                    disabled={authorizedEmails.length <= 1 || adminActionLoading}
+                    onClick={async () => {
+                      if (!window.confirm(`Are you absolutely sure you want to revoke administrative access for "${email}"?`)) return;
+                      setAdminActionLoading(true);
+                      setAdminAlertMsg("");
+                      try {
+                        await deleteAdminEmail(email);
+                        setAdminAlertType("success");
+                        setAdminAlertMsg(`Administrative access for "${email}" successfully revoked.`);
+                      } catch (err) {
+                        setAdminAlertType("error");
+                        setAdminAlertMsg(err.message);
+                      } finally {
+                        setAdminActionLoading(false);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg border border-white/5 text-textMuted hover:text-red-400 hover:border-red-500/25 bg-[#111827]/30 hover:bg-red-500/5 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-textMuted disabled:hover:border-white/5 cursor-pointer"
+                    title={authorizedEmails.length <= 1 ? "Cannot delete the last remaining whitelisted email" : "Revoke Access"}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add administrator form */}
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!newAdminEmail.trim() || !newAdminEmail.includes("@")) {
+                  setAdminAlertType("error");
+                  setAdminAlertMsg("Please enter a valid Google email address.");
+                  return;
+                }
+                setAdminActionLoading(true);
+                setAdminAlertMsg("");
+                try {
+                  await addAdminEmail(newAdminEmail.trim());
+                  setAdminAlertType("success");
+                  setAdminAlertMsg(`Successfully whitelisted "${newAdminEmail.trim()}" as administrator!`);
+                  setNewAdminEmail("");
+                } catch (err) {
+                  setAdminAlertType("error");
+                  setAdminAlertMsg(err.message);
+                } finally {
+                  setAdminActionLoading(false);
+                }
+              }}
+              className="flex flex-col gap-3 border-t border-white/5 pt-4 mt-1"
+            >
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-textSoft uppercase tracking-wider">Whitelist Google Email Address</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. admin@gmail.com"
+                    value={newAdminEmail}
+                    onChange={(e) => setNewAdminEmail(e.target.value)}
+                    className="glass-input p-3 text-xs font-light flex-1"
+                  />
+                  <button
+                    type="submit"
+                    disabled={adminActionLoading}
+                    className="px-4 py-3 rounded-xl bg-[#007BFF] hover:bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shrink-0 hover:shadow-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    <UserPlus size={14} />
+                    Add
+                  </button>
+                </div>
+              </div>
+            </form>
+
+          </div>
         </div>
 
       </div>

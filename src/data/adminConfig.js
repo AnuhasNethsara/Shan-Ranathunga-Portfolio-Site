@@ -1,5 +1,10 @@
-// Fallback admin credentials for the local simulation / fallback mode
+// Administrative settings and whitelists
 export const adminCredentials = {
   username: 'admin',
-  defaultPassword: 'shan2025'
+  defaultPassword: 'shan2025',
+  
+  // Whitelist of secure Google account email addresses allowed administrative access
+  authorizedGoogleEmails: [
+    'skg.kenjigaming@gmail.com'
+  ]
 };
