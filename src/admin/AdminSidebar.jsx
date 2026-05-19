@@ -14,7 +14,9 @@ import {
   Globe,
   LogOut,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ClipboardList,
+  MessageSquare
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -24,6 +26,8 @@ const menuItems = [
   { name: "About Manager", path: "/admin/about", icon: UserCog },
   { name: "Portfolio", path: "/admin/portfolio", icon: Briefcase },
   { name: "Services", path: "/admin/services", icon: Layers },
+  { name: "Proposals", path: "/admin/proposals", icon: ClipboardList, badgeKey: "proposals" },
+  { name: "Client Chat", path: "/admin/chats", icon: MessageSquare, badgeKey: "chats" },
   { name: "Testimonials", path: "/admin/testimonials", icon: MessageSquareHeart },
   { name: "Contact Info", path: "/admin/contact", icon: Settings2 },
   { name: "Inbox", path: "/admin/messages", icon: Mail, badgeKey: "messages" },
@@ -31,11 +35,17 @@ const menuItems = [
 ];
 
 const AdminSidebar = ({ collapsed, setCollapsed }) => {
-  const { messages, logout, firebaseActive } = useSiteData();
+  const { messages, proposals, chats, logout, firebaseActive } = useSiteData();
   const location = useLocation();
 
   // Count unread inbox messages
   const unreadCount = messages.filter(m => m.status === "unread").length;
+
+  // Count pending proposals
+  const pendingProposalsCount = (proposals || []).filter(p => p.status === "pending").length;
+
+  // Count unread chat messages from clients
+  const unreadChatsCount = (chats || []).filter(msg => msg.senderId !== "admin" && msg.unread).length;
 
   return (
     <div 
@@ -82,17 +92,22 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
         </div>
 
         {/* Navigation Link Matrix */}
-        <nav className="flex flex-col gap-1 p-3">
+        <nav className="flex flex-col gap-1 p-3 overflow-y-auto max-h-[calc(100vh-10rem)]">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            const hasBadge = item.badgeKey === "messages" && unreadCount > 0;
+
+            let badgeValue = 0;
+            if (item.badgeKey === "messages") badgeValue = unreadCount;
+            if (item.badgeKey === "proposals") badgeValue = pendingProposalsCount;
+            if (item.badgeKey === "chats") badgeValue = unreadChatsCount;
+            const hasBadge = badgeValue > 0;
 
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3.5 p-3.5 rounded-xl text-sm font-medium transition-all group relative ${
+                className={`flex items-center gap-3.5 p-3 rounded-xl text-sm font-medium transition-all group relative ${
                   isActive
                     ? "bg-[#007BFF] text-white font-semibold shadow-lg shadow-[#007BFF]/25"
                     : "text-textMuted hover:text-white hover:bg-white/5"
@@ -110,7 +125,7 @@ const AdminSidebar = ({ collapsed, setCollapsed }) => {
                     <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#38BDF8] shadow-[0_0_8px_#38BDF8]" />
                   ) : (
                     <span className="px-2 py-0.5 rounded-full bg-[#38BDF8] text-[#0A0A0A] font-sora font-bold text-[10px] shadow-[0_0_8px_rgba(56,189,248,0.4)] shrink-0">
-                      {unreadCount}
+                      {badgeValue}
                     </span>
                   )
                 )}

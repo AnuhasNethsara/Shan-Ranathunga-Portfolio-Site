@@ -12,7 +12,7 @@ const navLinks = [
 ];
 
 const Navbar = () => {
-  const { settings, currentUser } = useSiteData();
+  const { settings, currentUser, isAdmin, isClient } = useSiteData();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
@@ -93,14 +93,30 @@ const Navbar = () => {
             ))}
           </nav>
 
-          {/* Call to Action & Admin Link */}
+          {/* Call to Action & Admin/Client Portal Link */}
           <div className="hidden md:flex items-center gap-4">
-            {currentUser && (
+            {currentUser && isAdmin && (
               <a
                 href="/admin/dashboard"
                 className="text-xs px-3 py-1.5 rounded-md border border-[#38BDF8]/20 bg-[#38BDF8]/10 text-[#38BDF8] font-medium hover:bg-[#38BDF8]/20 transition-all"
               >
-                Dashboard
+                Admin Dashboard
+              </a>
+            )}
+            {currentUser && isClient && (
+              <a
+                href="/portal"
+                className="text-xs px-3 py-1.5 rounded-md border border-[#38BDF8]/20 bg-[#38BDF8]/10 text-[#38BDF8] font-medium hover:bg-[#38BDF8]/20 transition-all font-sora font-semibold"
+              >
+                Client Portal
+              </a>
+            )}
+            {!currentUser && (
+              <a
+                href="/portal"
+                className="text-xs px-4 py-2 rounded-full border border-white/15 hover:border-white/35 text-white font-sora font-semibold bg-white/5 hover:bg-white/10 transition-all"
+              >
+                Client Portal
               </a>
             )}
             <a
@@ -150,12 +166,28 @@ const Navbar = () => {
                 </a>
               ))}
               <div className="flex flex-col gap-3 mt-4">
-                {currentUser && (
+                {currentUser && isAdmin && (
                   <a
                     href="/admin/dashboard"
                     className="py-2.5 rounded-lg text-center border border-[#38BDF8]/20 bg-[#38BDF8]/5 text-[#38BDF8] font-medium"
                   >
                     Go to Admin Dashboard
+                  </a>
+                )}
+                {currentUser && isClient && (
+                  <a
+                    href="/portal"
+                    className="py-2.5 rounded-lg text-center border border-[#38BDF8]/20 bg-[#38BDF8]/5 text-[#38BDF8] font-medium"
+                  >
+                    Go to Client Portal
+                  </a>
+                )}
+                {!currentUser && (
+                  <a
+                    href="/portal"
+                    className="py-2.5 rounded-lg text-center border border-white/10 bg-white/5 text-white font-medium"
+                  >
+                    Access Client Portal
                   </a>
                 )}
                 <a

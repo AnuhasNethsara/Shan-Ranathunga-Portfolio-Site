@@ -16,7 +16,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 
 const TestimonialsManager = () => {
-  const { testimonials, addTestimonial, editTestimonial, deleteTestimonial, reorderTestimonials } = useSiteData();
+  const { testimonials, addTestimonial, editTestimonial, deleteTestimonial, reorderTestimonials, approveTestimonial } = useSiteData();
+
+  // Tab state
+  const [activeManagerTab, setActiveManagerTab] = useState("published"); // "published" | "pending"
 
   // Modal Control
   const [showModal, setShowModal] = useState(false);
@@ -31,6 +34,10 @@ const TestimonialsManager = () => {
   const [saving, setSaving] = useState(false);
   const [alertMsg, setAlertMsg] = useState("");
   const [alertType, setAlertType] = useState("success");
+
+  // Partition lists
+  const publishedTestimonials = (testimonials || []).filter(t => t.approved !== false);
+  const pendingTestimonials = (testimonials || []).filter(t => t.approved === false);
 
   // Open modal for Adding
   const handleOpenAdd = () => {
@@ -85,7 +92,8 @@ const TestimonialsManager = () => {
         clientName: clientName.trim(),
         rating,
         reviewText: reviewText.trim(),
-        avatar
+        avatar,
+        approved: true // Admins add pre-approved reviews
       };
 
       if (editingId) {
@@ -122,22 +130,42 @@ const TestimonialsManager = () => {
     }
   };
 
-  // Move
-  const handleMove = async (index, direction) => {
-    const targetIndex = index + direction;
-    if (targetIndex < 0 || targetIndex >= testimonials.length) return;
-
-    const copy = [...testimonials];
-    const temp = copy[index];
-    copy[index] = copy[targetIndex];
-    copy[targetIndex] = temp;
-
+  // Approval
+  const handleApprove = async (id) => {
     try {
-      await reorderTestimonials(copy);
+      await approveTestimonial(id);
+      setAlertType("success");
+      setAlertMsg("Testimonial approved and published to portfolio site!");
     } catch (err) {
       console.error(err);
+      setAlertType("error");
+      setAlertMsg("Failed to approve testimonial: " + err.message);
     }
   };
+
+  // Move
+  const handleMove = async (index, direction) => {
+    const targetItem = publishedTestimonials[index];
+    const destinationItem = publishedTestimonials[index + direction];
+    
+    const copy = [...testimonials];
+    const idxInFull = copy.findIndex(t => t.id === targetItem.id);
+    const destIdxInFull = copy.findIndex(t => t.id === destinationItem.id);
+    
+    if (idxInFull !== -1 && destIdxInFull !== -1) {
+      const temp = copy[idxInFull];
+      copy[idxInFull] = copy[destIdxInFull];
+      copy[destIdxInFull] = temp;
+      
+      try {
+        await reorderTestimonials(copy);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const activeList = activeManagerTab === "published" ? publishedTestimonials : pendingTestimonials;
 
   return (
     <div className="flex flex-col gap-8">
@@ -148,16 +176,45 @@ const TestimonialsManager = () => {
             Testimonials Manager
           </h2>
           <p className="text-textMuted text-xs md:text-sm font-light">
-            Review, add, edit, or sort reviews from clients showing on the public website.
+            Review, add, edit, or moderate reviews from clients showing on the public website.
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="px-5 py-3 rounded-full bg-[#007BFF] hover:bg-blue-600 text-white font-sora font-semibold text-xs tracking-wider uppercase flex items-center gap-2 transition-all shadow-md shrink-0"
+          className="px-5 py-3 rounded-full bg-[#007BFF] hover:bg-blue-600 text-white font-sora font-semibold text-xs tracking-wider uppercase flex items-center gap-2 transition-all shadow-md shrink-0 cursor-pointer"
         >
           <Plus size={15} />
           Add Testimonial
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-white/5">
+        <button
+          onClick={() => setActiveManagerTab("published")}
+          className={`py-3 px-5 text-xs font-semibold font-sora tracking-wider uppercase relative cursor-pointer ${
+            activeManagerTab === "published" ? "text-white font-bold" : "text-textMuted hover:text-white"
+          }`}
+        >
+          Published Reviews ({publishedTestimonials.length})
+          {activeManagerTab === "published" && (
+            <motion.div layoutId="activeTestTab" className="absolute bottom-0 left-0 w-full h-[2px] bg-[#38BDF8]" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveManagerTab("pending")}
+          className={`py-3 px-5 text-xs font-semibold font-sora tracking-wider uppercase relative flex items-center gap-1.5 cursor-pointer ${
+            activeManagerTab === "pending" ? "text-white font-bold" : "text-textMuted hover:text-white"
+          }`}
+        >
+          Moderation Queue ({pendingTestimonials.length})
+          {pendingTestimonials.length > 0 && (
+            <span className="w-2 h-2 rounded-full bg-[#38BDF8] animate-pulse" />
+          )}
+          {activeManagerTab === "pending" && (
+            <motion.div layoutId="activeTestTab" className="absolute bottom-0 left-0 w-full h-[2px] bg-[#38BDF8]" />
+          )}
         </button>
       </div>
 
@@ -179,7 +236,7 @@ const TestimonialsManager = () => {
 
       {/* Reviews List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {testimonials.map((test, idx) => (
+        {activeList.map((test, idx) => (
           <div
             key={test.id}
             className="glass-card p-6 rounded-2xl border border-white/5 shadow-lg flex flex-col justify-between gap-5"
@@ -214,45 +271,59 @@ const TestimonialsManager = () => {
                 </div>
                 <div>
                   <h4 className="font-sora text-xs font-semibold text-white tracking-tight">{test.clientName}</h4>
-                  <span className="text-[9px] text-[#38BDF8] uppercase font-bold tracking-widest">Verified client</span>
+                  <span className="text-[9px] text-[#38BDF8] uppercase font-bold tracking-widest">
+                    {test.approved === false ? "Pending moderation" : "Verified client"}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Actions footer */}
             <div className="flex items-center justify-between border-t border-white/5 pt-3">
-              {/* Sort */}
-              <div className="flex items-center gap-1">
+              {activeManagerTab === "published" ? (
+                /* Sorting operations for published items */
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleMove(idx, -1)}
+                    disabled={idx === 0}
+                    className="p-1.5 rounded bg-white/5 text-textMuted hover:text-white disabled:opacity-30 cursor-pointer"
+                    title="Move Left/Up"
+                  >
+                    <ArrowUp size={12} />
+                  </button>
+                  <button
+                    onClick={() => handleMove(idx, 1)}
+                    disabled={idx === publishedTestimonials.length - 1}
+                    className="p-1.5 rounded bg-white/5 text-textMuted hover:text-white disabled:opacity-30 cursor-pointer"
+                    title="Move Right/Down"
+                  >
+                    <ArrowDown size={12} />
+                  </button>
+                </div>
+              ) : (
+                /* Approve Control for pending items */
                 <button
-                  onClick={() => handleMove(idx, -1)}
-                  disabled={idx === 0}
-                  className="p-1.5 rounded bg-white/5 text-textMuted hover:text-white disabled:opacity-30"
-                  title="Move Left/Up"
+                  onClick={() => handleApprove(test.id)}
+                  className="px-3.5 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-sora font-semibold text-[10px] uppercase tracking-wider flex items-center gap-1 transition-colors cursor-pointer shadow-md"
                 >
-                  <ArrowUp size={12} />
+                  <Plus size={11} /> Approve & Publish
                 </button>
-                <button
-                  onClick={() => handleMove(idx, 1)}
-                  disabled={idx === testimonials.length - 1}
-                  className="p-1.5 rounded bg-white/5 text-textMuted hover:text-white disabled:opacity-30"
-                  title="Move Right/Down"
-                >
-                  <ArrowDown size={12} />
-                </button>
-              </div>
+              )}
 
               {/* Edit/Delete */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleOpenEdit(test)}
-                  className="p-2 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
-                  title="Edit Review"
-                >
-                  <Edit size={13} />
-                </button>
+                {activeManagerTab === "published" && (
+                  <button
+                    onClick={() => handleOpenEdit(test)}
+                    className="p-2 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors cursor-pointer"
+                    title="Edit Review"
+                  >
+                    <Edit size={13} />
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(test.id)}
-                  className="p-2 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                  className="p-2 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors cursor-pointer"
                   title="Delete Review"
                 >
                   <Trash2 size={13} />
@@ -262,10 +333,12 @@ const TestimonialsManager = () => {
           </div>
         ))}
 
-        {testimonials.length === 0 && (
-          <div className="md:col-span-2 lg:col-span-3 text-center py-16 border border-dashed border-white/5 rounded-2xl bg-white/5 flex flex-col items-center gap-3">
+        {activeList.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3 text-center py-16 border border-dashed border-white/5 rounded-2xl bg-white/5 flex flex-col items-center gap-3 w-full">
             <MessageSquareHeart size={32} className="text-textMuted/30" />
-            <span className="text-textMuted font-light text-xs">No client reviews added yet.</span>
+            <span className="text-textMuted font-light text-xs">
+              {activeManagerTab === "published" ? "No client reviews added yet." : "No reviews pending moderation."}
+            </span>
           </div>
         )}
       </div>

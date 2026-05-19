@@ -9,7 +9,8 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from "firebase/firestore";
 import { 
   signInWithEmailAndPassword, 
@@ -17,7 +18,8 @@ import {
   onAuthStateChanged,
   updatePassword,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import { defaultData } from "../data/defaultData";
 import { adminCredentials } from "../data/adminConfig";
@@ -37,6 +39,8 @@ export const SiteDataProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [settings, setSettings] = useState(defaultData.settings);
   const [authorizedEmails, setAuthorizedEmails] = useState(adminCredentials.authorizedGoogleEmails);
+  const [proposals, setProposals] = useState([]);
+  const [chats, setChats] = useState([]);
   
   // Auth state
   const [currentUser, setCurrentUser] = useState(null);
@@ -57,8 +61,12 @@ export const SiteDataProvider = ({ children }) => {
           if (heroSnap.exists()) {
             setHero(heroSnap.data());
           } else {
-            // Seed default
-            await setDoc(heroDocRef, defaultData.hero);
+            // Seed default (graceful fail on permission limits)
+            try {
+              await setDoc(heroDocRef, defaultData.hero);
+            } catch (e) {
+              console.warn("Seeding Hero data bypassed: Public user has read-only access.");
+            }
             setHero(defaultData.hero);
           }
 
@@ -68,7 +76,11 @@ export const SiteDataProvider = ({ children }) => {
           if (aboutSnap.exists()) {
             setAbout(aboutSnap.data());
           } else {
-            await setDoc(aboutDocRef, defaultData.about);
+            try {
+              await setDoc(aboutDocRef, defaultData.about);
+            } catch (e) {
+              console.warn("Seeding About data bypassed: Public user has read-only access.");
+            }
             setAbout(defaultData.about);
           }
 
@@ -78,7 +90,11 @@ export const SiteDataProvider = ({ children }) => {
           if (contactSnap.exists()) {
             setContactInfo(contactSnap.data());
           } else {
-            await setDoc(contactDocRef, defaultData.contactInfo);
+            try {
+              await setDoc(contactDocRef, defaultData.contactInfo);
+            } catch (e) {
+              console.warn("Seeding Contact Info bypassed: Public user has read-only access.");
+            }
             setContactInfo(defaultData.contactInfo);
           }
 
@@ -88,7 +104,11 @@ export const SiteDataProvider = ({ children }) => {
           if (settingsSnap.exists()) {
             setSettings(settingsSnap.data());
           } else {
-            await setDoc(settingsDocRef, defaultData.settings);
+            try {
+              await setDoc(settingsDocRef, defaultData.settings);
+            } catch (e) {
+              console.warn("Seeding Settings bypassed: Public user has read-only access.");
+            }
             setSettings(defaultData.settings);
           }
 
@@ -98,7 +118,11 @@ export const SiteDataProvider = ({ children }) => {
           if (adminsSnap.exists()) {
             setAuthorizedEmails(adminsSnap.data().emails || adminCredentials.authorizedGoogleEmails);
           } else {
-            await setDoc(adminsDocRef, { emails: adminCredentials.authorizedGoogleEmails });
+            try {
+              await setDoc(adminsDocRef, { emails: adminCredentials.authorizedGoogleEmails });
+            } catch (e) {
+              console.warn("Seeding Admin Whitelist bypassed: Public user has read-only access.");
+            }
             setAuthorizedEmails(adminCredentials.authorizedGoogleEmails);
           }
 
@@ -111,13 +135,17 @@ export const SiteDataProvider = ({ children }) => {
             list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setPortfolio(list);
           } else {
-            // Seed portfolio items in batch
-            const batch = writeBatch(db);
-            defaultData.portfolio.forEach((proj, idx) => {
-              const docRef = doc(portfolioCol, proj.id);
-              batch.set(docRef, { ...proj, orderIndex: idx });
-            });
-            await batch.commit();
+            // Seed portfolio items in batch (graceful fail on public write limit)
+            try {
+              const batch = writeBatch(db);
+              defaultData.portfolio.forEach((proj, idx) => {
+                const docRef = doc(portfolioCol, proj.id);
+                batch.set(docRef, { ...proj, orderIndex: idx });
+              });
+              await batch.commit();
+            } catch (e) {
+              console.warn("Seeding Portfolio database bypassed: Public user has read-only access.");
+            }
             setPortfolio(defaultData.portfolio.map((p, idx) => ({ ...p, orderIndex: idx })));
           }
 
@@ -129,12 +157,16 @@ export const SiteDataProvider = ({ children }) => {
             list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setServices(list);
           } else {
-            const batch = writeBatch(db);
-            defaultData.services.forEach((serv, idx) => {
-              const docRef = doc(servicesCol, serv.id);
-              batch.set(docRef, { ...serv, orderIndex: idx });
-            });
-            await batch.commit();
+            try {
+              const batch = writeBatch(db);
+              defaultData.services.forEach((serv, idx) => {
+                const docRef = doc(servicesCol, serv.id);
+                batch.set(docRef, { ...serv, orderIndex: idx });
+              });
+              await batch.commit();
+            } catch (e) {
+              console.warn("Seeding Services database bypassed: Public user has read-only access.");
+            }
             setServices(defaultData.services.map((s, idx) => ({ ...s, orderIndex: idx })));
           }
 
@@ -146,28 +178,87 @@ export const SiteDataProvider = ({ children }) => {
             list.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
             setTestimonials(list);
           } else {
-            const batch = writeBatch(db);
-            defaultData.testimonials.forEach((test, idx) => {
-              const docRef = doc(testimonialsCol, test.id);
-              batch.set(docRef, { ...test, orderIndex: idx });
-            });
-            await batch.commit();
+            try {
+              const batch = writeBatch(db);
+              defaultData.testimonials.forEach((test, idx) => {
+                const docRef = doc(testimonialsCol, test.id);
+                batch.set(docRef, { ...test, orderIndex: idx });
+              });
+              await batch.commit();
+            } catch (e) {
+              console.warn("Seeding Testimonials database bypassed: Public user has read-only access.");
+            }
             setTestimonials(defaultData.testimonials.map((t, idx) => ({ ...t, orderIndex: idx })));
           }
 
           // --- 8. LOAD INBOX MESSAGES ---
           const messagesCol = collection(db, "messages");
-          const messagesSnap = await getDocs(messagesCol);
-          const msgList = messagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          msgList.sort((a, b) => new Date(b.date) - new Date(a.date)); // Newest first
+          let msgList = [];
+          try {
+            const messagesSnap = await getDocs(messagesCol);
+            msgList = messagesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            msgList.sort((a, b) => new Date(b.date) - new Date(a.date)); // Newest first
+          } catch (e) {
+            console.warn("Bypassed Messages reading: restricted to Admin only.");
+          }
           setMessages(msgList);
 
+          // --- 9. LOAD PROPOSALS ---
+          const proposalsCol = collection(db, "proposals");
+          let propList = [];
+          try {
+            const proposalsSnap = await getDocs(proposalsCol);
+            propList = proposalsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            propList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          } catch (e) {
+            console.warn("Bypassed Proposals reading: restricted to Auth users only.");
+          }
+          setProposals(propList);
+
+          // --- 10. SUBSCRIBE TO REAL-TIME CHATS ---
+          const chatsCol = collection(db, "chats");
+          let unsubscribeChats = () => {};
+          try {
+            unsubscribeChats = onSnapshot(chatsCol, (snapshot) => {
+              const chatsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              chatsList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // Oldest first
+              setChats(chatsList);
+            });
+          } catch (e) {
+            console.warn("Bypassed real-time chats subscription: restricted to Auth users only.");
+          }
+
           // Setup Auth listener
-          const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setCurrentUser(user);
+          const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+              try {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                  const userData = userDoc.data();
+                  setCurrentUser({
+                    ...user,
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: userData.displayName || user.displayName || user.email.split("@")[0],
+                    role: userData.role || "client"
+                  });
+                } else {
+                  setCurrentUser(user);
+                }
+              } catch (e) {
+                console.error("Error fetching user profile:", e);
+                setCurrentUser(user);
+              }
+            } else {
+              setCurrentUser(null);
+            }
             setLoading(false);
           });
-          return unsubscribe;
+
+          return () => {
+            unsubscribe();
+            unsubscribeChats();
+          };
 
         } catch (error) {
           console.error("Error connecting with Firestore, reverting to local backup mode:", error);
@@ -208,10 +299,19 @@ export const SiteDataProvider = ({ children }) => {
       const storedAdmins = localStorage.getItem("shan_authorized_emails");
       setAuthorizedEmails(storedAdmins ? JSON.parse(storedAdmins) : adminCredentials.authorizedGoogleEmails);
 
-      // Simple localStorage Admin Session check
+      const storedProposals = localStorage.getItem("shan_proposals");
+      setProposals(storedProposals ? JSON.parse(storedProposals) : []);
+
+      const storedChats = localStorage.getItem("shan_chats");
+      setChats(storedChats ? JSON.parse(storedChats) : []);
+
+      // Simple localStorage Session check
       const adminSession = localStorage.getItem("shan_admin_session");
+      const clientSession = localStorage.getItem("shan_client_session");
       if (adminSession === "true") {
         setCurrentUser({ email: "admin@portfolio.local", uid: "admin_local", isLocal: true });
+      } else if (clientSession) {
+        setCurrentUser(JSON.parse(clientSession));
       } else {
         setCurrentUser(null);
       }
@@ -538,6 +638,233 @@ export const SiteDataProvider = ({ children }) => {
     } else {
       setCurrentUser(null);
       localStorage.removeItem("shan_admin_session");
+      localStorage.removeItem("shan_client_session");
+    }
+  };
+
+  // --- CLIENT AUTH & PORTAL SERVICES ---
+
+  const registerClient = async (email, password, displayName) => {
+    if (firebaseActive) {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Save client profile in Firestore users collection
+      const clientProfile = {
+        uid: user.uid,
+        email: email.toLowerCase(),
+        displayName: displayName,
+        role: "client",
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, "users", user.uid), clientProfile);
+      
+      setCurrentUser({
+        ...user,
+        ...clientProfile
+      });
+      return user;
+    } else {
+      // Local fallback mode register
+      const clients = JSON.parse(localStorage.getItem("shan_clients") || "[]");
+      if (clients.some(c => c.email.toLowerCase() === email.toLowerCase())) {
+        throw new Error("A client with this email address already exists.");
+      }
+      const newClient = { uid: "client_" + Date.now(), email: email.toLowerCase(), displayName, role: "client", password };
+      clients.push(newClient);
+      localStorage.setItem("shan_clients", JSON.stringify(clients));
+      
+      const localSession = { email: email.toLowerCase(), uid: newClient.uid, displayName, role: "client", isLocal: true };
+      setCurrentUser(localSession);
+      localStorage.setItem("shan_client_session", JSON.stringify(localSession));
+      return localSession;
+    }
+  };
+
+  const loginClient = async (email, password) => {
+    if (firebaseActive) {
+      const userCredential = await signInWithEmailAndPassword(auth, email.toLowerCase(), password);
+      const user = userCredential.user;
+      
+      // Load user profile
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setCurrentUser({
+          ...user,
+          uid: user.uid,
+          email: user.email,
+          displayName: userData.displayName || user.displayName || user.email.split("@")[0],
+          role: userData.role || "client"
+        });
+      } else {
+        setCurrentUser(user);
+      }
+      return user;
+    } else {
+      const clients = JSON.parse(localStorage.getItem("shan_clients") || "[]");
+      const client = clients.find(c => c.email.toLowerCase() === email.toLowerCase() && c.password === password);
+      if (client) {
+        const localSession = { email: client.email, uid: client.uid, displayName: client.displayName, role: "client", isLocal: true };
+        setCurrentUser(localSession);
+        localStorage.setItem("shan_client_session", JSON.stringify(localSession));
+        return localSession;
+      } else {
+        throw new Error("Invalid client credentials.");
+      }
+    }
+  };
+
+  const loginClientWithGoogle = async () => {
+    if (firebaseActive) {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const userCredential = await signInWithPopup(auth, provider);
+      const user = userCredential.user;
+      
+      // Save client profile in Firestore users collection if it doesn't exist
+      const userDocRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userDocRef);
+      let userData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email.split("@")[0],
+        role: "client",
+        createdAt: new Date().toISOString()
+      };
+      
+      if (!userSnap.exists()) {
+        await setDoc(userDocRef, userData);
+      } else {
+        userData = userSnap.data();
+      }
+      
+      setCurrentUser({
+        ...user,
+        uid: user.uid,
+        email: user.email,
+        displayName: userData.displayName || user.displayName || user.email.split("@")[0],
+        role: userData.role || "client"
+      });
+      return user;
+    } else {
+      throw new Error("Google Sign-In is only active when your Firebase Cloud configuration is connected.");
+    }
+  };
+
+  // --- PROPOSALS ENGINE ---
+
+  const submitProposal = async (proposal) => {
+    if (!currentUser) throw new Error("Authentication required to submit proposals.");
+    const id = "prop_" + Date.now();
+    const newProposal = {
+      id,
+      clientId: currentUser.uid,
+      clientName: currentUser.displayName || currentUser.email.split("@")[0],
+      clientEmail: currentUser.email,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      ...proposal
+    };
+    
+    const updated = [newProposal, ...proposals];
+    setProposals(updated);
+    
+    if (firebaseActive) {
+      await setDoc(doc(db, "proposals", id), newProposal);
+    } else {
+      localStorage.setItem("shan_proposals", JSON.stringify(updated));
+    }
+  };
+
+  const updateProposalStatus = async (id, status) => {
+    const updated = proposals.map(p => p.id === id ? { ...p, status } : p);
+    setProposals(updated);
+    
+    if (firebaseActive) {
+      await updateDoc(doc(db, "proposals", id), { status });
+    } else {
+      localStorage.setItem("shan_proposals", JSON.stringify(updated));
+    }
+  };
+
+  // --- CLIENT TESTIMONIAL MODERATION ---
+
+  const submitClientTestimonial = async (test) => {
+    if (!currentUser) throw new Error("Authentication required to submit testimonials.");
+    const id = "test_" + Date.now();
+    const newTest = { 
+      id, 
+      ...test, 
+      approved: false, // Moderate by default
+      orderIndex: testimonials.length 
+    };
+    const updated = [...testimonials, newTest];
+    setTestimonials(updated);
+
+    if (firebaseActive) {
+      await setDoc(doc(db, "testimonials", id), newTest);
+    } else {
+      localStorage.setItem("shan_testimonials", JSON.stringify(updated));
+    }
+  };
+
+  const approveTestimonial = async (id) => {
+    const updated = testimonials.map(t => t.id === id ? { ...t, approved: true } : t);
+    setTestimonials(updated);
+
+    if (firebaseActive) {
+      await updateDoc(doc(db, "testimonials", id), { approved: true });
+    } else {
+      localStorage.setItem("shan_testimonials", JSON.stringify(updated));
+    }
+  };
+
+  // --- REAL-TIME CHAT ENGINE ---
+
+  const sendChatMessage = async (text, recipientId = "admin") => {
+    if (!currentUser) throw new Error("Authentication required to send chat messages.");
+    const id = "msg_" + Date.now();
+    const newMsg = {
+      id,
+      senderId: currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email.split("@")[0],
+      senderEmail: currentUser.email,
+      recipientId,
+      text,
+      createdAt: new Date().toISOString(),
+      unread: true
+    };
+
+    const updated = [...chats, newMsg];
+    setChats(updated);
+
+    if (firebaseActive) {
+      await setDoc(doc(db, "chats", id), newMsg);
+    } else {
+      localStorage.setItem("shan_chats", JSON.stringify(updated));
+    }
+  };
+
+  const markChatsAsRead = async (senderId) => {
+    if (!currentUser) return;
+    const updated = chats.map(m => {
+      if (m.senderId === senderId && m.recipientId === currentUser.uid && m.unread) {
+        return { ...m, unread: false };
+      }
+      return m;
+    });
+    setChats(updated);
+
+    if (firebaseActive) {
+      const batch = writeBatch(db);
+      const unreadMsgs = chats.filter(m => m.senderId === senderId && m.recipientId === currentUser.uid && m.unread);
+      unreadMsgs.forEach(m => {
+        batch.update(doc(db, "chats", m.id), { unread: false });
+      });
+      await batch.commit();
+    } else {
+      localStorage.setItem("shan_chats", JSON.stringify(updated));
     }
   };
 
@@ -629,8 +956,13 @@ export const SiteDataProvider = ({ children }) => {
     }
   };
 
+  const isAdmin = currentUser && (authorizedEmails.some(e => e.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser.isLocal || currentUser.role === "admin");
+  const isClient = currentUser && !isAdmin;
+
   return (
     <SiteDataContext.Provider value={{
+      isAdmin,
+      isClient,
       hero,
       about,
       portfolio,
@@ -669,7 +1001,18 @@ export const SiteDataProvider = ({ children }) => {
       importAllData,
       authorizedEmails,
       addAdminEmail,
-      deleteAdminEmail
+      deleteAdminEmail,
+      proposals,
+      chats,
+      registerClient,
+      loginClient,
+      loginClientWithGoogle,
+      submitProposal,
+      updateProposalStatus,
+      submitClientTestimonial,
+      approveTestimonial,
+      sendChatMessage,
+      markChatsAsRead
     }}>
       {children}
     </SiteDataContext.Provider>

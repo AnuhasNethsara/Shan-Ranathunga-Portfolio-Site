@@ -2,12 +2,15 @@ import React from "react";
 import { useSiteData } from "../context/SiteDataContext";
 import { Star, Quote } from "lucide-react";
 import { motion } from "framer-motion";
+import { defaultData } from "../data/defaultData";
 
 const Testimonials = () => {
   const { testimonials, settings } = useSiteData();
 
   // If testimonials section is toggled off in admin settings, hide it
   if (!settings.showTestimonials) return null;
+
+  const activeTestimonials = (testimonials && testimonials.length > 0) ? testimonials : defaultData.testimonials;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -51,7 +54,7 @@ const Testimonials = () => {
           viewport={{ once: true, margin: "-100px" }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
         >
-          {testimonials.map((test) => (
+          {activeTestimonials.filter(t => t.approved !== false).map((test) => (
             <motion.div
               variants={itemVariants}
               key={test.id}

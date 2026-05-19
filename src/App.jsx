@@ -25,6 +25,9 @@ import TestimonialsManager from "./admin/pages/TestimonialsManager";
 import ContactInfoManager from "./admin/pages/ContactInfoManager";
 import MessagesInbox from "./admin/pages/MessagesInbox";
 import Settings from "./admin/pages/Settings";
+import ClientPortal from "./components/ClientPortal";
+import ProposalsManager from "./admin/pages/ProposalsManager";
+import ChatsManager from "./admin/pages/ChatsManager";
 
 // Custom Cursor component with lagging neon glow
 const CustomCursor = () => {
@@ -216,7 +219,12 @@ function App() {
             <Route path="contact" element={<ContactInfoManager />} />
             <Route path="messages" element={<MessagesInbox />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="proposals" element={<ProposalsManager />} />
+            <Route path="chats" element={<ChatsManager />} />
           </Route>
+
+          {/* Client Portal */}
+          <Route path="/portal" element={<ClientPortal />} />
 
           {/* Wildcard Fallbacks */}
           <Route path="*" element={<Navigate to="/" replace />} />

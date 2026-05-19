@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useSiteData } from "../context/SiteDataContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, X, Tag, Wrench } from "lucide-react";
+import { defaultData } from "../data/defaultData";
 
 const categories = ["All", "Thumbnails", "Social Media", "Branding", "Posters", "Logos", "UI"];
 
@@ -10,10 +11,12 @@ const Portfolio = () => {
   const [activeFilter, setActiveFilter] = useState("All");
   const [selectedProject, setSelectedProject] = useState(null);
 
+  const activePortfolio = (portfolio && portfolio.length > 0) ? portfolio : defaultData.portfolio;
+
   // Filter projects list
   const filteredProjects = activeFilter === "All"
-    ? portfolio
-    : portfolio.filter(proj => proj.category?.toLowerCase() === activeFilter.toLowerCase());
+    ? activePortfolio
+    : activePortfolio.filter(proj => proj.category?.toLowerCase() === activeFilter.toLowerCase());
 
   return (
     <section id="portfolio" className="py-24 bg-[#0A0A0A] relative">

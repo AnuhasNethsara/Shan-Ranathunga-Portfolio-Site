@@ -6,7 +6,7 @@ import { Menu, Globe, LogOut, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const AdminLayout = () => {
-  const { currentUser, loading } = useSiteData();
+  const { currentUser, loading, isAdmin } = useSiteData();
   const navigate = useNavigate();
   
   const [collapsed, setCollapsed] = useState(false);
@@ -14,10 +14,14 @@ const AdminLayout = () => {
 
   // Protected route check
   useEffect(() => {
-    if (!loading && !currentUser) {
-      navigate("/admin/login");
+    if (!loading) {
+      if (!currentUser) {
+        navigate("/admin/login");
+      } else if (!isAdmin) {
+        navigate("/portal");
+      }
     }
-  }, [currentUser, loading, navigate]);
+  }, [currentUser, loading, isAdmin, navigate]);
 
   if (loading) {
     return (

@@ -313,7 +313,7 @@ const Footer = () => {
           {/* Copyright Area */}
           <div className="flex flex-col gap-1 sm:items-start">
             <p className="text-[11px] text-textMuted font-light">
-              © {new Date().getFullYear()} Shan Ranathunga. All Rights Reserved.
+              © {new Date().getFullYear()} Anuhas Nethsara. All Rights Reserved.
             </p>
           </div>
 

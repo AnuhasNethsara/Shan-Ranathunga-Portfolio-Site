@@ -2,6 +2,7 @@ import React from "react";
 import { useSiteData } from "../context/SiteDataContext";
 import * as LucideIcons from "lucide-react";
 import { motion } from "framer-motion";
+import { defaultData } from "../data/defaultData";
 
 const DynamicIcon = ({ name, ...props }) => {
   const IconComponent = LucideIcons[name] || LucideIcons.HelpCircle;
@@ -10,6 +11,7 @@ const DynamicIcon = ({ name, ...props }) => {
 
 const Services = () => {
   const { services } = useSiteData();
+  const activeServices = (services && services.length > 0) ? services : defaultData.services;
 
   // Scroll animations
   const containerVariants = {
@@ -58,7 +60,7 @@ const Services = () => {
           viewport={{ once: true, margin: "-100px" }}
           className="grid grid-cols-1 md:grid-cols-2 gap-8"
         >
-          {services.map((service) => (
+          {activeServices.map((service) => (
             <motion.div
               variants={itemVariants}
               key={service.id}
