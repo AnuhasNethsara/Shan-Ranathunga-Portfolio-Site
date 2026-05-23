@@ -1,16 +1,53 @@
-# React + Vite
+# 🎨 Shan Ranathunga – Freelancing Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Welcome to the official portfolio of **Shan Ranathunga**, a creative freelance graphic designer specializing in modern, high-impact digital visuals.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 👨‍🎨 About Me
+I am a freelance graphic designer focused on creating eye-catching and engaging designs, especially for YouTube thumbnails, social media posts, and branding materials.
 
-## React Compiler
+My goal is to help creators and businesses stand out with clean, professional, and conversion-focused designs.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 💼 Services I Offer
+- 🎬 YouTube Thumbnail Design  
+- 📱 Social Media Post Design  
+- 🧠 Branding & Logo Design  
+- 🎯 Promotional Posters & Ads  
+- ✨ Custom Graphic Design Work  
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 🛠️ Tools I Use
+- Adobe Photoshop  
+- Adobe Illustrator  
+- Canva (Pro Design Workflow)  
+- Figma (UI Concepts)
+
+---
+
+## 🚀 Featured Work
+(You can add images here)
+
+- YouTube Thumbnails
+- Social Media Designs
+- Branding Projects
+
+---
+
+## 📞 Contact Me
+- Email: your-email@example.com  
+- Fiverr: https://fiverr.com/yourprofile  
+- Instagram: https://instagram.com/yourprofile  
+
+---
+
+## ⭐ Goal
+To deliver high-quality, professional designs that help clients grow their online presence and engagement.
+
+---
+
+## 📌 Note
+This repository showcases my freelance design work and serves as my official portfolio for clients and collaborations.
