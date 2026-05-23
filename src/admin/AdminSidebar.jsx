@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
-  MessageSquare
+  MessageSquare,
+  Users
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -28,6 +29,7 @@ const menuItems = [
   { name: "Services", path: "/admin/services", icon: Layers },
   { name: "Proposals", path: "/admin/proposals", icon: ClipboardList, badgeKey: "proposals" },
   { name: "Client Chat", path: "/admin/chats", icon: MessageSquare, badgeKey: "chats" },
+  { name: "Clients", path: "/admin/clients", icon: Users },
   { name: "Testimonials", path: "/admin/testimonials", icon: MessageSquareHeart },
   { name: "Contact Info", path: "/admin/contact", icon: Settings2 },
   { name: "Inbox", path: "/admin/messages", icon: Mail, badgeKey: "messages" },

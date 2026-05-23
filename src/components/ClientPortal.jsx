@@ -17,7 +17,11 @@ import {
   AlertCircle,
   Plus,
   ShieldCheck,
-  Building
+  Building,
+  Paperclip,
+  X,
+  FileText,
+  Download
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -35,7 +39,9 @@ const ClientPortal = () => {
     submitProposal,
     submitClientTestimonial,
     sendChatMessage,
+    sendChatMessageWithAttachment,
     markChatsAsRead,
+    compressAndUploadImage,
     logout,
     firebaseActive
   } = useSiteData();
@@ -71,7 +77,11 @@ const ClientPortal = () => {
 
   // Chat states
   const [chatMessage, setChatMessage] = useState("");
+  const [chatAttachment, setChatAttachment] = useState(null);
+  const [chatAttachmentPreview, setChatAttachmentPreview] = useState(null);
+  const [chatSending, setChatSending] = useState(false);
   const chatEndRef = useRef(null);
+  const chatFileRef = useRef(null);
 
   // Redirect if admin attempts to use client portal
   useEffect(() => {
@@ -195,14 +205,41 @@ const ClientPortal = () => {
   // Handle Chat message sending
   const handleSendChatMessage = async (e) => {
     e.preventDefault();
-    if (!chatMessage.trim()) return;
+    if (!chatMessage.trim() && !chatAttachment) return;
 
+    setChatSending(true);
     try {
-      await sendChatMessage(chatMessage.trim(), "admin");
+      let attachment = null;
+      if (chatAttachment) {
+        attachment = await compressAndUploadImage(chatAttachment);
+      }
+      await sendChatMessageWithAttachment(chatMessage.trim(), "admin", attachment);
       setChatMessage("");
+      setChatAttachment(null);
+      setChatAttachmentPreview(null);
+      if (chatFileRef.current) chatFileRef.current.value = "";
     } catch (err) {
       console.error(err);
       alert("Failed to send message: " + err.message);
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  const handleChatFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File size must be under 10MB.");
+      return;
+    }
+    setChatAttachment(file);
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setChatAttachmentPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setChatAttachmentPreview(null);
     }
   };
 
@@ -691,7 +728,20 @@ const ClientPortal = () => {
                                 : "bg-[#1E293B] text-textSoft rounded-tl-none border border-white/5"
                             }`}
                           >
-                            {msg.text}
+                            {msg.text && <span>{msg.text}</span>}
+                            {msg.attachment && (
+                              msg.attachment.type?.startsWith("image") ? (
+                                <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                                  <img src={msg.attachment.url} alt={msg.attachment.name} className="max-w-[220px] rounded-lg border border-white/10" />
+                                </a>
+                              ) : (
+                                <a href={msg.attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 p-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-[10px]">
+                                  <FileText size={13} className="text-[#38BDF8] shrink-0" />
+                                  <span className="truncate">{msg.attachment.name}</span>
+                                  <Download size={11} className="shrink-0 ml-auto" />
+                                </a>
+                              )
+                            )}
                           </div>
                         </div>
                       );
@@ -709,18 +759,52 @@ const ClientPortal = () => {
                     <div ref={chatEndRef} />
                   </div>
 
+                  {/* Attachment Preview */}
+                  {chatAttachment && (
+                    <div className="px-4 py-2 border-t border-white/5 bg-white/2 flex items-center gap-3">
+                      {chatAttachmentPreview ? (
+                        <img src={chatAttachmentPreview} alt="preview" className="w-10 h-10 rounded-lg object-cover border border-white/10" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center">
+                          <FileText size={14} className="text-textMuted" />
+                        </div>
+                      )}
+                      <span className="text-[10px] text-white font-medium truncate">{chatAttachment.name}</span>
+                      <button onClick={() => { setChatAttachment(null); setChatAttachmentPreview(null); if (chatFileRef.current) chatFileRef.current.value = ""; }} className="ml-auto p-1 rounded hover:bg-white/10 text-textMuted hover:text-red-400 cursor-pointer">
+                        <X size={13} />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Footer message composer bar */}
                   <form onSubmit={handleSendChatMessage} className="h-16 border-t border-white/5 px-4 flex items-center gap-3 shrink-0 bg-white/2">
+                    <button
+                      type="button"
+                      onClick={() => chatFileRef.current?.click()}
+                      className="p-2 rounded-full border border-white/5 text-textMuted hover:text-[#38BDF8] hover:border-[#38BDF8]/20 transition-all cursor-pointer"
+                      title="Attach file (images auto-compressed to WebP)"
+                    >
+                      <Paperclip size={14} />
+                    </button>
+                    <input
+                      ref={chatFileRef}
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+                      onChange={handleChatFileSelect}
+                      className="hidden"
+                    />
                     <input
                       type="text"
-                      placeholder="Write your sync message details here..."
+                      placeholder="Write your message..."
                       value={chatMessage}
                       onChange={(e) => setChatMessage(e.target.value)}
                       className="flex-grow glass-input px-4 py-2.5 text-xs font-light"
+                      disabled={chatSending}
                     />
                     <button
                       type="submit"
-                      className="p-2.5 rounded-full bg-[#007BFF] hover:bg-blue-600 text-white shadow-md transition-all shrink-0 cursor-pointer"
+                      disabled={chatSending || (!chatMessage.trim() && !chatAttachment)}
+                      className="p-2.5 rounded-full bg-[#007BFF] hover:bg-blue-600 text-white shadow-md transition-all shrink-0 cursor-pointer disabled:opacity-50"
                     >
                       <Send size={14} />
                     </button>

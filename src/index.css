@@ -86,7 +86,6 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    cursor: none; /* Hide default cursor for custom cursor */
   }
 
   body {
@@ -117,39 +116,8 @@
   }
 }
 
-/* Custom animated cursor glow trail */
-.custom-cursor {
-  width: 8px;
-  height: 8px;
-  background-color: #38BDF8;
-  border-radius: 50%;
-  position: fixed;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 99999;
-  transition: width 0.2s, height 0.2s, background-color 0.2s;
-  box-shadow: 0 0 10px #38BDF8, 0 0 20px #007BFF;
-}
-
-.custom-cursor-glow {
-  width: 36px;
-  height: 36px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, rgba(0, 123, 255, 0.03) 70%, transparent 100%);
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  border-radius: 50%;
-  position: fixed;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 99998;
-  transition: transform 0.08s cubic-bezier(0.25, 1, 0.5, 1), width 0.2s, height 0.2s;
-}
-
 /* Hide custom cursor on mobile touch devices */
 @media (hover: none) and (pointer: coarse) {
-  .custom-cursor,
-  .custom-cursor-glow {
-    display: none;
-  }
   html {
     cursor: auto;
   }

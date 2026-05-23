@@ -19,6 +19,8 @@ import {
   updatePassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   createUserWithEmailAndPassword
 } from "firebase/auth";
 import { defaultData } from "../data/defaultData";
@@ -41,6 +43,7 @@ export const SiteDataProvider = ({ children }) => {
   const [authorizedEmails, setAuthorizedEmails] = useState(adminCredentials.authorizedGoogleEmails);
   const [proposals, setProposals] = useState([]);
   const [chats, setChats] = useState([]);
+  const [clients, setClients] = useState([]);
   
   // Auth state
   const [currentUser, setCurrentUser] = useState(null);
@@ -216,20 +219,15 @@ export const SiteDataProvider = ({ children }) => {
           setProposals(propList);
 
           // --- 10. SUBSCRIBE TO REAL-TIME CHATS ---
-          const chatsCol = collection(db, "chats");
-          let unsubscribeChats = () => {};
-          try {
-            unsubscribeChats = onSnapshot(chatsCol, (snapshot) => {
-              const chatsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              chatsList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // Oldest first
-              setChats(chatsList);
-            });
-          } catch (e) {
-            console.warn("Bypassed real-time chats subscription: restricted to Auth users only.");
-          }
+          // Chats subscription will be set up after auth state is confirmed (see below)
 
           // Setup Auth listener
+          let unsubscribeChats = () => {};
           const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            // Always clean up previous chats subscription on auth state change
+            unsubscribeChats();
+            unsubscribeChats = () => {};
+            
             if (user) {
               try {
                 const userDoc = await getDoc(doc(db, "users", user.uid));
@@ -249,11 +247,45 @@ export const SiteDataProvider = ({ children }) => {
                 console.error("Error fetching user profile:", e);
                 setCurrentUser(user);
               }
+
+              // Subscribe to real-time chats once authenticated
+              try {
+                const chatsCol = collection(db, "chats");
+                unsubscribeChats = onSnapshot(
+                  chatsCol,
+                  (snapshot) => {
+                    const chatsList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                    chatsList.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    setChats(chatsList);
+                  },
+                  (error) => {
+                    console.warn("Chats real-time subscription error:", error.code, error.message);
+                  }
+                );
+              } catch (e) {
+                console.warn("Could not subscribe to chats:", e);
+              }
             } else {
               setCurrentUser(null);
+              setChats([]);
             }
             setLoading(false);
           });
+
+          // Handle redirect result (fallback for when popup is blocked)
+          try {
+            const redirectResult = await getRedirectResult(auth);
+            if (redirectResult) {
+              const user = redirectResult.user;
+              const isAllowed = authorizedEmails.some(email => email.toLowerCase() === user.email.toLowerCase());
+              if (!isAllowed) {
+                await signOut(auth);
+                console.error(`Access Denied: The Google account "${user.email}" is not whitelisted.`);
+              }
+            }
+          } catch (redirectError) {
+            console.error("Redirect sign-in error:", redirectError);
+          }
 
           return () => {
             unsubscribe();
@@ -580,19 +612,30 @@ export const SiteDataProvider = ({ children }) => {
     if (firebaseActive) {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const userCredential = await signInWithPopup(auth, provider);
-      const user = userCredential.user;
+      
+      try {
+        const userCredential = await signInWithPopup(auth, provider);
+        const user = userCredential.user;
 
-      // Verify email whitelist access against dynamic loaded settings
-      const isAllowed = authorizedEmails.some(email => email.toLowerCase() === user.email.toLowerCase());
+        // Verify email whitelist access against dynamic loaded settings
+        const isAllowed = authorizedEmails.some(email => email.toLowerCase() === user.email.toLowerCase());
 
-      if (!isAllowed) {
-        await signOut(auth);
-        throw new Error(`Access Denied: The Google account "${user.email}" is not whitelisted for admin credentials.`);
+        if (!isAllowed) {
+          await signOut(auth);
+          throw new Error(`Access Denied: The Google account "${user.email}" is not whitelisted for admin credentials.`);
+        }
+
+        setCurrentUser(user);
+        return user;
+      } catch (error) {
+        // If popup was blocked by COOP or browser, fall back to redirect
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+          console.warn("Popup blocked, falling back to redirect sign-in...");
+          await signInWithRedirect(auth, provider);
+          return null; // Redirect will reload the page
+        }
+        throw error;
       }
-
-      setCurrentUser(user);
-      return user;
     } else {
       throw new Error("Google Sign-In is only active when your live Firebase Cloud configuration is connected.");
     }
@@ -825,9 +868,13 @@ export const SiteDataProvider = ({ children }) => {
   const sendChatMessage = async (text, recipientId = "admin") => {
     if (!currentUser) throw new Error("Authentication required to send chat messages.");
     const id = "msg_" + Date.now();
+    
+    // Determine if sender is admin — use "admin" as senderId for consistent routing
+    const senderIsAdmin = authorizedEmails.some(e => e.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser.isLocal || currentUser.role === "admin";
+    
     const newMsg = {
       id,
-      senderId: currentUser.uid,
+      senderId: senderIsAdmin ? "admin" : currentUser.uid,
       senderName: currentUser.displayName || currentUser.email.split("@")[0],
       senderEmail: currentUser.email,
       recipientId,
@@ -836,34 +883,41 @@ export const SiteDataProvider = ({ children }) => {
       unread: true
     };
 
-    const updated = [...chats, newMsg];
-    setChats(updated);
-
     if (firebaseActive) {
+      // Let onSnapshot handle the state update for real-time sync
       await setDoc(doc(db, "chats", id), newMsg);
     } else {
+      const updated = [...chats, newMsg];
+      setChats(updated);
       localStorage.setItem("shan_chats", JSON.stringify(updated));
     }
   };
 
   const markChatsAsRead = async (senderId) => {
     if (!currentUser) return;
-    const updated = chats.map(m => {
-      if (m.senderId === senderId && m.recipientId === currentUser.uid && m.unread) {
-        return { ...m, unread: false };
-      }
-      return m;
-    });
-    setChats(updated);
+    
+    // Determine the recipientId to match — admin messages have recipientId "admin", not the UID
+    const currentIsAdmin = authorizedEmails.some(e => e.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser.isLocal || currentUser.role === "admin";
+    const myRecipientId = currentIsAdmin ? "admin" : currentUser.uid;
+    
+    const unreadMsgs = chats.filter(m => m.senderId === senderId && m.recipientId === myRecipientId && m.unread);
+    if (unreadMsgs.length === 0) return;
 
     if (firebaseActive) {
+      // Let onSnapshot handle the state update for real-time sync
       const batch = writeBatch(db);
-      const unreadMsgs = chats.filter(m => m.senderId === senderId && m.recipientId === currentUser.uid && m.unread);
       unreadMsgs.forEach(m => {
         batch.update(doc(db, "chats", m.id), { unread: false });
       });
       await batch.commit();
     } else {
+      const updated = chats.map(m => {
+        if (m.senderId === senderId && m.recipientId === myRecipientId && m.unread) {
+          return { ...m, unread: false };
+        }
+        return m;
+      });
+      setChats(updated);
       localStorage.setItem("shan_chats", JSON.stringify(updated));
     }
   };
@@ -956,6 +1010,190 @@ export const SiteDataProvider = ({ children }) => {
     }
   };
 
+  // --- CLIENT MANAGEMENT ---
+
+  const loadClients = async () => {
+    if (firebaseActive) {
+      try {
+        const usersCol = collection(db, "users");
+        const usersSnap = await getDocs(usersCol);
+        const clientsList = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setClients(clientsList);
+        return clientsList;
+      } catch (e) {
+        console.warn("Could not load clients:", e);
+        return [];
+      }
+    } else {
+      const stored = JSON.parse(localStorage.getItem("shan_clients") || "[]");
+      setClients(stored);
+      return stored;
+    }
+  };
+
+  const updateClientRole = async (clientId, newRole) => {
+    if (firebaseActive) {
+      await updateDoc(doc(db, "users", clientId), { role: newRole });
+      setClients(prev => prev.map(c => c.id === clientId ? { ...c, role: newRole } : c));
+    } else {
+      const stored = JSON.parse(localStorage.getItem("shan_clients") || "[]");
+      const updated = stored.map(c => c.uid === clientId ? { ...c, role: newRole } : c);
+      localStorage.setItem("shan_clients", JSON.stringify(updated));
+      setClients(updated);
+    }
+  };
+
+  const deleteClient = async (clientId) => {
+    if (firebaseActive) {
+      await deleteDoc(doc(db, "users", clientId));
+      setClients(prev => prev.filter(c => c.id !== clientId));
+    } else {
+      const stored = JSON.parse(localStorage.getItem("shan_clients") || "[]");
+      const updated = stored.filter(c => c.uid !== clientId);
+      localStorage.setItem("shan_clients", JSON.stringify(updated));
+      setClients(updated);
+    }
+  };
+
+  // --- CHAT DELETION ---
+
+  const deleteChatMessage = async (msgId) => {
+    if (firebaseActive) {
+      await deleteDoc(doc(db, "chats", msgId));
+      // onSnapshot will handle state update
+    } else {
+      const updated = chats.filter(m => m.id !== msgId);
+      setChats(updated);
+      localStorage.setItem("shan_chats", JSON.stringify(updated));
+    }
+  };
+
+  const deleteEntireChatThread = async (clientId) => {
+    const threadMsgs = chats.filter(
+      m => (m.senderId === clientId && m.recipientId === "admin") ||
+           (m.senderId === "admin" && m.recipientId === clientId)
+    );
+    
+    if (firebaseActive) {
+      const batch = writeBatch(db);
+      threadMsgs.forEach(m => {
+        batch.delete(doc(db, "chats", m.id));
+      });
+      await batch.commit();
+      // onSnapshot will handle state update
+    } else {
+      const updated = chats.filter(m => !threadMsgs.some(t => t.id === m.id));
+      setChats(updated);
+      localStorage.setItem("shan_chats", JSON.stringify(updated));
+    }
+  };
+
+  // --- FILE ATTACHMENT WITH WEBP COMPRESSION (base64, no Storage needed) ---
+
+  const compressAndUploadImage = async (file) => {
+    // Compress image to WebP using Canvas API and return as base64 data URL
+    const compressToWebP = (file) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const maxDim = 1200;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = (height / width) * maxDim;
+                width = maxDim;
+              } else {
+                width = (width / height) * maxDim;
+                height = maxDim;
+              }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const dataUrl = canvas.toDataURL("image/webp", 0.7);
+            resolve(dataUrl);
+          };
+          img.onerror = () => reject(new Error("Failed to load image"));
+          img.src = e.target.result;
+        };
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+    };
+
+    // Convert non-image file to base64
+    const fileToBase64 = (file) => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+    };
+
+    const isImage = file.type.startsWith("image/");
+    let dataUrl;
+    let fileName = file.name;
+    
+    if (isImage) {
+      dataUrl = await compressToWebP(file);
+      fileName = file.name.replace(/\.[^.]+$/, ".webp");
+    } else {
+      // Non-image files: limit to 500KB to stay within Firestore doc limits
+      if (file.size > 500 * 1024) {
+        throw new Error("Non-image files must be under 500KB. Compress or use a smaller file.");
+      }
+      dataUrl = await fileToBase64(file);
+    }
+    
+    return {
+      url: dataUrl,
+      name: fileName,
+      type: isImage ? "image/webp" : file.type,
+      size: dataUrl.length
+    };
+  };
+
+  // Send chat message with optional attachment
+  const sendChatMessageWithAttachment = async (text, recipientId = "admin", attachment = null) => {
+    if (!currentUser) throw new Error("Authentication required to send chat messages.");
+    const id = "msg_" + Date.now();
+    
+    const senderIsAdmin = authorizedEmails.some(e => e.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser.isLocal || currentUser.role === "admin";
+    
+    const newMsg = {
+      id,
+      senderId: senderIsAdmin ? "admin" : currentUser.uid,
+      senderName: currentUser.displayName || currentUser.email.split("@")[0],
+      senderEmail: currentUser.email,
+      recipientId,
+      text: text || "",
+      createdAt: new Date().toISOString(),
+      unread: true
+    };
+
+    if (attachment) {
+      newMsg.attachment = attachment;
+    }
+
+    if (firebaseActive) {
+      await setDoc(doc(db, "chats", id), newMsg);
+    } else {
+      const updated = [...chats, newMsg];
+      setChats(updated);
+      localStorage.setItem("shan_chats", JSON.stringify(updated));
+    }
+  };
+
   const isAdmin = currentUser && (authorizedEmails.some(e => e.toLowerCase() === currentUser.email?.toLowerCase()) || currentUser.isLocal || currentUser.role === "admin");
   const isClient = currentUser && !isAdmin;
 
@@ -1004,6 +1242,7 @@ export const SiteDataProvider = ({ children }) => {
       deleteAdminEmail,
       proposals,
       chats,
+      clients,
       registerClient,
       loginClient,
       loginClientWithGoogle,
@@ -1012,7 +1251,14 @@ export const SiteDataProvider = ({ children }) => {
       submitClientTestimonial,
       approveTestimonial,
       sendChatMessage,
-      markChatsAsRead
+      sendChatMessageWithAttachment,
+      markChatsAsRead,
+      loadClients,
+      updateClientRole,
+      deleteClient,
+      deleteChatMessage,
+      deleteEntireChatThread,
+      compressAndUploadImage
     }}>
       {children}
     </SiteDataContext.Provider>

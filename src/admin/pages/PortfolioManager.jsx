@@ -62,18 +62,45 @@ const PortfolioManager = () => {
     setShowModal(true);
   };
 
-  // Read upload and convert to Base64
+  // Read upload, compress to WebP, and convert to Base64
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Image size exceeds 2MB limit.");
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Original file size exceeds 5MB limit. Please use a smaller image.");
         return;
       }
       
+      const img = new Image();
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result);
+      
+      reader.onload = (ev) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 1200;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = (height / width) * maxDim;
+              width = maxDim;
+            } else {
+              width = (width / height) * maxDim;
+              height = maxDim;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress to WebP at 70% quality — keeps it well under Firestore's 1MB field limit
+          const dataUrl = canvas.toDataURL("image/webp", 0.7);
+          setImage(dataUrl);
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     }

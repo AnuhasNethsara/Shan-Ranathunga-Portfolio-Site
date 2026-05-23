@@ -59,18 +59,33 @@ const TestimonialsManager = () => {
     setShowModal(true);
   };
 
-  // Read upload and convert to Base64
+  // Read upload, compress to WebP, and convert to Base64
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 1 * 1024 * 1024) {
-        alert("Avatar size exceeds 1MB limit.");
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Original file exceeds 5MB. Use a smaller image.");
         return;
       }
       
+      const img = new Image();
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatar(reader.result);
+      reader.onload = (ev) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 400;
+          let width = img.width;
+          let height = img.height;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) { height = (height / width) * maxDim; width = maxDim; }
+            else { width = (width / height) * maxDim; height = maxDim; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+          setAvatar(canvas.toDataURL("image/webp", 0.75));
+        };
+        img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
     }
