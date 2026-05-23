@@ -1,53 +1,34 @@
-# 🎨 Shan Ranathunga – Freelancing Portfolio
+# 🌐 Shan Ranathunga Portfolio Website
 
-Welcome to the official portfolio of **Shan Ranathunga**, a creative freelance graphic designer specializing in modern, high-impact digital visuals.
-
----
-
-## 👨‍🎨 About Me
-I am a freelance graphic designer focused on creating eye-catching and engaging designs, especially for YouTube thumbnails, social media posts, and branding materials.
-
-My goal is to help creators and businesses stand out with clean, professional, and conversion-focused designs.
+This is the official portfolio website for **Shan Ranathunga**, a freelance graphic designer specializing in YouTube thumbnails, branding, and digital design.
 
 ---
 
-## 💼 Services I Offer
-- 🎬 YouTube Thumbnail Design  
-- 📱 Social Media Post Design  
-- 🧠 Branding & Logo Design  
-- 🎯 Promotional Posters & Ads  
-- ✨ Custom Graphic Design Work  
+## 🚀 Live Website
+👉 https://shanportfolio.kengsl.indevs.in/
 
 ---
 
-## 🛠️ Tools I Use
-- Adobe Photoshop  
-- Adobe Illustrator  
-- Canva (Pro Design Workflow)  
-- Figma (UI Concepts)
+## 🎨 Features
+- Modern responsive portfolio design
+- Services showcase section
+- Project/works display area
+- Contact & social links integration
+- Clean UI optimized for clients
 
 ---
 
-## 🚀 Featured Work
-(You can add images here)
-
-- YouTube Thumbnails
-- Social Media Designs
-- Branding Projects
+## 👨‍🎨 About the Designer
+Shan Ranathunga is a freelance graphic designer focused on creating high-quality visual content for creators and businesses, especially YouTube thumbnails and branding materials.
 
 ---
 
-## 📞 Contact Me
-- Email: your-email@example.com  
-- Fiverr: https://fiverr.com/yourprofile  
-- Instagram: https://instagram.com/yourprofile  
+## 🛠️ Tech Stack
+- HTML5
+- CSS3
+- JavaScript
+- Responsive UI Design
 
 ---
 
-## ⭐ Goal
-To deliver high-quality, professional designs that help clients grow their online presence and engagement.
-
----
-
-## 📌 Note
-This repository showcases my freelance design work and serves as my official portfolio for clients and collaborations.
+## 📁 Project Structure
